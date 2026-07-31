@@ -101,7 +101,7 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Copy the Ollama binary from the official image
 COPY --from=ollama-bin --chown=1000:1000 /usr/bin/ollama /usr/local/bin/ollama
 
-# ── System packages + ALL heavy installs in ONE layer ──────────────────
+# ── System packages + ALL heavy installs in ONE layer ──────────────────.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
         zsh ripgrep jq curl git ca-certificates gnupg zstd sudo \
