@@ -9,7 +9,7 @@ ARG OLLAMA_VERSION=0.32.5
 # Use the official Ollama image to get the binary
 FROM ollama/ollama:${OLLAMA_VERSION} AS ollama-bin
 
-# ── Node.js builder: ModelRelay + OmniRoute + Hermes Web UI ─────────────
+# ── Node.js builder: ModelRelay + OmniRoute + Hermes Web UI + TUI ───────
 FROM node:24-slim AS node-builder
 
 ARG OMNIROUTE_VERSION
@@ -51,6 +51,17 @@ RUN git clone --depth 1 --branch ${HERMES_VERSION} https://github.com/NousResear
     && npm run build \
     && cp -r ../hermes_cli/web_dist /build/web_dist \
     && rm -rf /tmp/hermes
+
+# ── Hermes TUI ────────────────────────────────────────────────────────
+# Build the TUI bundle (dist/entry.js) and copy to hermes_cli/tui_dist
+# so the dashboard's embedded chat tab can spawn the TUI without a full workspace
+RUN git clone --depth 1 --branch ${HERMES_VERSION} https://github.com/NousResearch/hermes-agent.git /tmp/hermes-tui \
+    && cd /tmp/hermes-tui/ui-tui \
+    && npm install --silent \
+    && npm run build \
+    && mkdir -p /build/tui_dist \
+    && cp dist/entry.js /build/tui_dist/ \
+    && rm -rf /tmp/hermes-tui
 
 # ── Python builder: Hermes Agent venv ────────────────────────────────────
 # Using 3.11-slim because hermes-agent requires Python >=3.11.
@@ -161,6 +172,8 @@ COPY --from=node-builder /build/omniroute/ /usr/local/lib/omniroute/
 # The venv's non-editable install puts hermes_cli in site-packages, so
 # web_dist must go there for the dashboard --skip-build to find it.
 COPY --from=node-builder /build/web_dist/ /usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/hermes_cli/web_dist/
+# The TUI bundle (tui_dist/entry.js) is needed for the dashboard's embedded chat tab
+COPY --from=node-builder /build/tui_dist/ /usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/hermes_cli/tui_dist/
 
 # ── Copy Hermes Agent venv from python-builder ────────────────────────
 # Non-editable install: venv is self-contained, no source tree needed.
