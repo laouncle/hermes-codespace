@@ -74,10 +74,20 @@ ARG HERMES_VERSION
 RUN apt-get update && apt-get install -y --no-install-recommends git \
     && rm -rf /var/lib/apt/lists/*
 
+# Clone hermes-agent source (separate RUN so the prebuilt bundles can be
+# injected into the tree BEFORE pip install below)
+RUN git clone --depth 1 --branch ${HERMES_VERSION} https://github.com/NousResearch/hermes-agent.git /tmp/hermes
+
+# Inject the prebuilt TUI bundle into the source tree before `pip install .`.
+# pyproject.toml declares tui_dist/**/* as package-data, so with the bundle
+# present the wheel is built WITH it and the venv becomes self-contained —
+# the dashboard's embedded chat PTY resolves hermes_cli/tui_dist/entry.js
+# at runtime, and no last-minute copy into site-packages is needed.
+COPY --from=node-builder /build/tui_dist/ /tmp/hermes/hermes_cli/tui_dist/
+
 # Build Hermes Agent Python venv (non-editable so venv is self-contained)
 # IMPORTANT: venv path must match COPY destination in final stage for shebangs to work
 RUN mkdir -p /usr/local/lib/hermes-agent \
-    && git clone --depth 1 --branch ${HERMES_VERSION} https://github.com/NousResearch/hermes-agent.git /tmp/hermes \
     && cd /tmp/hermes \
     && python -m venv /usr/local/lib/hermes-agent/venv \
     && /usr/local/lib/hermes-agent/venv/bin/pip install --no-cache-dir . \
@@ -172,8 +182,6 @@ COPY --from=node-builder /build/omniroute/ /usr/local/lib/omniroute/
 # The venv's non-editable install puts hermes_cli in site-packages, so
 # web_dist must go there for the dashboard --skip-build to find it.
 COPY --from=node-builder /build/web_dist/ /usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/hermes_cli/web_dist/
-# The TUI bundle (tui_dist/entry.js) is needed for the dashboard's embedded chat tab
-COPY --from=node-builder /build/tui_dist/ /usr/local/lib/hermes-agent/venv/lib/python3.11/site-packages/hermes_cli/tui_dist/
 
 # ── Copy Hermes Agent venv from python-builder ────────────────────────
 # Non-editable install: venv is self-contained, no source tree needed.
