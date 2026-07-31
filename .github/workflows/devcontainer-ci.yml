@@ -7,7 +7,7 @@ on:
       - '.devcontainer/**'
       - '!.devcontainer/screen-shot.png'
   pull_request:
-    branches: [main, dockerizeation2]
+    branches: [main]
     paths:
       - '.devcontainer/**'
       - '!.devcontainer/screen-shot.png'
