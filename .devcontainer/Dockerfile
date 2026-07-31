@@ -9,6 +9,9 @@ ARG OLLAMA_VERSION=0.32.5
 # Use the official Ollama image to get the binary
 FROM ollama/ollama:${OLLAMA_VERSION} AS ollama-bin
 
+# ── Tailscale binaries from official image ─────────────────────────────
+FROM tailscale/tailscale:stable AS tailscale
+
 # ── Node.js builder: ModelRelay + OmniRoute + Hermes Web UI + TUI ───────
 FROM node:24-slim AS node-builder
 
@@ -112,6 +115,13 @@ ENV DEBIAN_FRONTEND=noninteractive
 # Copy the Ollama binary from the official image
 COPY --from=ollama-bin --chown=1000:1000 /usr/bin/ollama /usr/local/bin/ollama
 
+# Copy Tailscale binaries from the official image
+COPY --from=tailscale /usr/local/bin/tailscaled /usr/local/bin/tailscaled
+COPY --from=tailscale /usr/local/bin/tailscale  /usr/local/bin/tailscale
+
+# Create Tailscale state directories
+RUN mkdir -p /var/run/tailscale /var/lib/tailscale /var/cache/tailscale
+
 # ── System packages + ALL heavy installs in ONE layer ──────────────────.
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
@@ -144,14 +154,7 @@ RUN apt-get update \
     OLLAMA_MODELS=/usr/share/ollama/.ollama/models /usr/local/bin/ollama pull nomic-embed-text && \
     ls -la /usr/share/ollama/.ollama/models/ && \
     find /usr/share/ollama/.ollama/models -type f | head -20 && \
-    OLLAMA_MODELS=/usr/share/ollama/.ollama/models ollama list && \
-    kill %1 && wait 2>/dev/null || true \
-    \
-    # ── TailScale ─────────────────────────────────────────────────────
-    #&& mkdir -p /var/run/tailscale /var/lib/tailscale \
-    #&& (curl -fsSL https://tailscale.com/install.sh | bash || echo "WARN: tailscale install failed, continuing") \
-    #&& rm -rf /var/lib/apt/lists/* \
-    
+    kill %1 && wait 2>/dev/null || true \\
 
     # ── Mnemon ────────────────────────────────────────────────────────
     && ARCH=amd64 \
