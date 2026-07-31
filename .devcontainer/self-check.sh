@@ -97,7 +97,7 @@ if ! should_skip "services"; then
   # Poll all service ports until all respond or timeout
   PORT_POLL_TIMEOUT=60
   POLL_STARTED_AT=$(date +%s)
-  declare -A RESPONDED=([3000]="" [8888]="" [7352]="" [20128]="", [9119]="")
+  declare -A RESPONDED=([3000]="" [8888]="" [7352]="" [20128]="" [9119]="")
 
   while true; do
     NOW=$(date +%s)
@@ -237,6 +237,17 @@ if ! should_skip "hermes"; then
     _fail "Config" "no config at ${HERMES_CONFIG}"
     json_add "hermes:config" "fail" "hermes config file not found" "{}"
   fi
+
+  # ACP adapter — the VS Code extension's chat backend. A broken adapter
+  # (e.g. agent-client-protocol version drift) shows up as "ACP connection
+  # closed" in the extension and is otherwise silent.
+  if hermes acp --check >/dev/null 2>&1; then
+    _ok "ACP Adapter" "hermes acp --check OK"
+    json_add "hermes:acp" "ok" "ACP adapter imports and protocol deps OK" "{}"
+  else
+    _fail "ACP Adapter" "hermes acp --check failed (VS Code extension won't connect)"
+    json_add "hermes:acp" "fail" "hermes acp --check failed" "{}"
+  fi
 else
   echo "   (skipped)"
 fi
@@ -341,7 +352,7 @@ if ! should_skip "ollama"; then
   # 3. Model listed — retry up to 15s (server may still be scanning models)
   MODEL_LISTED=0
   for _attempt in 1 2 3 4 5; do
-    MODEL_LISTED=$(ollama list 2>/dev/null | grep -c "nomic-embed-text" || true)
+    MODEL_LISTED=$(OLLAMA_MODELS=/usr/share/ollama/.ollama/models ollama list 2>/dev/null | grep -c "nomic-embed-text" || true)
     [ -z "$MODEL_LISTED" ] && MODEL_LISTED=0
     [ "$MODEL_LISTED" -gt 0 ] && break
     sleep 3
@@ -350,11 +361,11 @@ if ! should_skip "ollama"; then
     _ok "Model" "nomic-embed-text available"
   else
     # Filesystem fallback: check if model files exist on disk (server may be slow to load)
-    MODEL_MANIFEST="$HOME/.ollama/models/manifests/registry.ollama.ai/library/nomic-embed-text/latest"
+    MODEL_MANIFEST="/usr/share/ollama/.ollama/models/manifests/registry.ollama.ai/library/nomic-embed-text/latest"
     if [ -f "$MODEL_MANIFEST" ]; then
       _warn "Model" "nomic-embed-text on disk but not listed by server (loading slow)"
     else
-      _warn "Model" "nomic-embed-text not found on disk"
+      _warn "Model" "nomic-embed-text not found on disk (model not baked)"
     fi
   fi
 
@@ -378,9 +389,8 @@ else
   echo "   (skipped)"
 fi
 
-# ── Summary ──────────────────────────────────────────────────────────────────
-section "Summary"
 echo ""
+section "Summary"
 if [ "$CRITICAL" -gt 0 ]; then
   echo "  ${RED}${BOLD}FAILED${NC} — ${CRITICAL} critical, ${WARNINGS} warning(s)"
   EXIT_CODE=2
