@@ -128,7 +128,7 @@ RUN apt-get update \
         zsh ripgrep jq curl git ca-certificates gnupg zstd sudo \
         python3 python3-pip nodejs npm \
     && rm -rf /var/lib/apt/lists/* \
-    
+    \
     # ── Ensure a non-root user with UID 1000 exists ──────────────────────
     && UID1000_USER=$(getent passwd 1000 | cut -d: -f1) \
     && if [ -z "$UID1000_USER" ]; then \
@@ -138,10 +138,10 @@ RUN apt-get update \
     fi \
     && echo "${UID1000_USER} ALL=(ALL) NOPASSWD:ALL" > /etc/sudoers.d/vscode \
     && chmod 0440 /etc/sudoers.d/vscode \
-    
+    \
     # ── Ollama (direct binary install – reliable in Docker) ───────────
     && ollama --version \
-    
+    \
     # ── Bake Ollama embedding model into image ───────────────────────
     # Pull nomic-embed-text at build time so it's available instantly
     # at runtime with zero RAM spike or download delay. (~300MB)
@@ -154,8 +154,7 @@ RUN apt-get update \
     OLLAMA_MODELS=/usr/share/ollama/.ollama/models /usr/local/bin/ollama pull nomic-embed-text && \
     ls -la /usr/share/ollama/.ollama/models/ && \
     find /usr/share/ollama/.ollama/models -type f | head -20 && \
-    kill %1 && wait 2>/dev/null || true \\
-
+    kill %1 && wait 2>/dev/null || true \
     # ── Mnemon ────────────────────────────────────────────────────────
     && ARCH=amd64 \
     && curl -sL "https://github.com/mnemon-dev/mnemon/releases/download/v${MNEMON_VERSION}/mnemon_${MNEMON_VERSION}_linux_${ARCH}.tar.gz" \
@@ -164,11 +163,7 @@ RUN apt-get update \
     && cp /tmp/mnemon /usr/local/bin/mnemon \
     && chmod +x /usr/local/bin/mnemon \
     && rm -rf /tmp/mnemon.tar.gz /tmp/mnemon \
-    
-
     && curl -fsSL https://claude.ai/install.sh | bash \
-    
-
     # ── Final cleanup ─────────────────────────────────────────────────
     && apt-get autoremove -y \
     && apt-get clean \
